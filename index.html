@@ -402,6 +402,14 @@ document.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click"
   catch (err) { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selected, press copy"; }
   setTimeout(() => b.textContent = old, 2200);
 }));
+
+// Menu links: scroll with scrollIntoView so they also work when the page is embedded in another site (e.g. Wix)
+document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener("click", e => {
+  const id = a.getAttribute("href").slice(1), t = id ? document.getElementById(id) : null;
+  if (!t) return;
+  e.preventDefault();
+  t.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+}));
 </script>
 
 </body>
