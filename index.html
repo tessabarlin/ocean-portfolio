@@ -154,7 +154,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px 
 .lb-bot{padding:14px max(18px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));color:rgba(242,244,240,.7);font-variant-numeric:tabular-nums}
 .lb-stage{position:relative;min-height:0;display:grid;place-items:center;padding:0 72px}
 .lb.embedded{position:absolute;inset:auto 0 auto 0}
-.lb.embedded .lb-stage img{max-height:calc(var(--lbh) - 150px)}
+.lb.embedded .lb-stage img{max-height:calc(var(--lbh) - 120px)}
 .lb-stage img{max-width:100%;max-height:calc(100vh - 150px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));max-height:calc(100dvh - 150px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));width:auto;height:auto;object-fit:contain;display:block}
 .lb button{all:unset;cursor:pointer;color:#f2f4f0}
 .lb button:focus-visible{outline:2px solid #d0ad6a;outline-offset:3px}
@@ -369,18 +369,32 @@ function show() {
   document.getElementById("lb-n").textContent = `${cur.i + 1} / ${s.items.length}`;
 }
 const EMBED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+// When embedded (e.g. in Wix), find the part of this page that is actually on the visitor's screen
+// and fill exactly that area with the viewer, so photos open centred and large.
+let lbIO = null;
+function fitLb(vis) {
+  const top = vis.top + window.scrollY, h = Math.max(320, vis.height);
+  lb.classList.add("embedded");
+  lb.style.top = top + "px";
+  lb.style.height = h + "px";
+  lb.style.setProperty("--lbh", h + "px");
+}
 function placeLb(from) {
   if (!EMBED) return;
-  const h = Math.round(Math.min(Math.max(((window.screen && screen.availHeight) || 800) - 200, 360), 820));
-  const r = from.getBoundingClientRect(), y = r.top + window.scrollY + r.height / 2;
-  const maxTop = document.documentElement.scrollHeight - h;
-  lb.classList.add("embedded");
-  lb.style.setProperty("--lbh", h + "px");
-  lb.style.height = h + "px";
-  lb.style.top = Math.max(0, Math.min(y - h / 2, maxTop)) + "px";
+  const fallbackH = Math.round(Math.min(Math.max(((window.screen && screen.availHeight) || 800) - 120, 360), 900));
+  const r = from.getBoundingClientRect();
+  fitLb({ top: Math.max(0, r.top + r.height / 2 - fallbackH / 2), height: fallbackH });
+  if (!("IntersectionObserver" in window)) return;
+  if (lbIO) lbIO.disconnect();
+  const steps = Array.from({ length: 1001 }, (_, i) => i / 1000);
+  lbIO = new IntersectionObserver(entries => {
+    const e = entries[entries.length - 1], v = e.intersectionRect;
+    if (v.height > 200) fitLb({ top: v.top, height: v.height });
+  }, { threshold: steps });
+  lbIO.observe(document.body);
 }
 function openLb(set, i, from) { cur = { set, i, from }; show(); placeLb(from); lb.hidden = false; document.body.style.overflow = "hidden"; document.getElementById("lb-close").focus(); }
-function closeLb() { lb.hidden = true; document.body.style.overflow = ""; cur.from && cur.from.focus(); }
+function closeLb() { if (lbIO) { lbIO.disconnect(); lbIO = null; } lb.hidden = true; document.body.style.overflow = ""; cur.from && cur.from.focus(); }
 function step(d) { const n = SETS[cur.set].items.length; cur.i = (cur.i + d + n) % n; show(); }
 document.getElementById("lb-close").onclick = closeLb;
 document.getElementById("lb-prev").onclick = () => step(-1);
